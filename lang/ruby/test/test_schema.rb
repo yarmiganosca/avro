@@ -456,4 +456,21 @@ class TestSchema < Test::Unit::TestCase
     assert_equal('Error validating default for veggies: at . expected type null, got string with value "apple"',
                  exception.to_s)
   end
+
+  def test_primitive_schema_equality
+    assert_equal(
+      hash_to_schema({ type: "int", name: "name" }),
+      hash_to_schema({ type: "int", name: "name" })
+    )
+
+    assert_not_equal(
+      hash_to_schema({ type: "int", name: "name" }),
+      hash_to_schema({ type: "float", name: "name" })
+    )
+
+    assert_not_equal(
+      hash_to_schema({ type: "int", name: "left" }),
+      hash_to_schema({ type: "int", name: "right" })
+    )
+  end
 end
