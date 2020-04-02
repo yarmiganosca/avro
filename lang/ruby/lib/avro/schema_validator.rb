@@ -184,18 +184,30 @@ module Avro
       def validate_union(expected_schema, datum, path, result, options = {})
         if expected_schema.schemas.size == 1
           validate_recursive(expected_schema.schemas.first, datum, path, result, options)
-          return
-        end
-        failures = []
-        compatible_type = first_compatible_type(datum, expected_schema, path, failures, options)
-        return unless compatible_type.nil?
-
-        complex_type_failed = failures.detect { |r| COMPLEX_TYPES.include?(r[:type]) }
-        if complex_type_failed
-          complex_type_failed[:result].errors.each { |error| result << error }
         else
-          types = expected_schema.schemas.map { |s| "'#{s.type_sym}'" }.join(', ')
-          result.add_error(path, "expected union of [#{types}], got #{actual_value_message(datum)}")
+          # The problem here is that we discard all validation failure information garnered
+          # from checking the datum against each potential schema in the union. Most of the
+          # time, that's justified because "<datum> isn't a <type>" doesn't provide more
+          # information than we'd provide by saying "<datum> is any of these <types>". But
+          # some validation messages provide more information then just "<datum> isn't <type>".
+          # Validations for ints and longs, for example, can also say "<datum> is too big",
+          # which would be useful information to report back to the user as part of the
+          # validation failure message for the whole union. Right now we can't do that, so
+          # we get messages like "expected union of [null, long], got long 9999999999999999999",
+          # which, um, isn't a great failure message.
+          failures = []
+          compatible_type = first_compatible_type(datum, expected_schema, path, failures, options)
+
+          return unless compatible_type.nil?
+
+          complex_type_failed = failures.detect { |r| COMPLEX_TYPES.include?(r[:type]) }
+
+          if complex_type_failed
+            complex_type_failed[:result].errors.each { |error| result << error }
+          else
+            types = expected_schema.schemas.map { |s| "'#{s.type_sym}'" }.join(', ')
+            result.add_error(path, "expected union of [#{types}], got #{actual_value_message(datum)}")
+          end
         end
       end
 
